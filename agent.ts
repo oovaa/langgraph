@@ -113,4 +113,20 @@ export async function callAgent(
     .addEdge('__start__', 'agent')
     .addConditionalEdges('agent', shouldContiue)
     .addEdge('tools', 'agent')
+
+  const checkpointer = new MongoDBSaver({ client, dbName: db_name })
+
+  const app = workFlow.compile({ checkpointer })
+
+  const finalState = await app.invoke(
+    {
+      messages: [new HumanMessage(query)],
+    },
+    { recursionLimit: 15, configurable: { thread_id: thread_id } }
+  )
+
+  // console.log(JSON.stringify(finalState.messages, null, 2));
+  console.log(finalState.messages[finalState.messages.length - 1].content)
+
+  return finalState.messages[finalState.messages.length - 1].content
 }
