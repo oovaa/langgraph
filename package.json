@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "main": "index.js",
     "scripts": {
-        "dev": "bun index.ts",
+        "dev": "bun --watch index.ts",
         "seed": "bun seed-database.ts"
     },
     "keywords": [],

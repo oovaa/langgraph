@@ -1,5 +1,8 @@
-import { OpenAIEmbeddings } from '@langchain/openai'
-import { ChatAnthropic } from '@langchain/anthropic'
+import {
+  ChatGoogleGenerativeAI,
+  GoogleGenerativeAIEmbeddings,
+} from '@langchain/google-genai'
+import { ChatGroq } from '@langchain/groq'
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages'
 import {
   ChatPromptTemplate,
@@ -14,9 +17,6 @@ import { MongoDBAtlasVectorSearch } from '@langchain/mongodb'
 import { MongoClient } from 'mongodb'
 import { z } from 'zod'
 import 'dotenv/config'
-import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai'
-import { ChatGroq } from '@langchain/groq'
-import { stat } from 'fs'
 
 export async function callAgent(
   client: MongoClient,
@@ -27,8 +27,9 @@ export async function callAgent(
   const db = client.db(db_name)
   const collection = db.collection('employees')
 
+  // Fixed state definition to use 'messages' instead of 'message'
   const GraphState = Annotation.Root({
-    message: Annotation<BaseMessage[]>({
+    messages: Annotation<BaseMessage[]>({
       reducer: (x, y) => x.concat(y),
     }),
   })
@@ -46,7 +47,7 @@ export async function callAgent(
 
       const vectore_Store = new MongoDBAtlasVectorSearch(
         new GoogleGenerativeAIEmbeddings({
-          model: 'text-embedding-004', // 768 dimensions
+          model: 'text-embedding-004',
         }),
         dbConfig
       )
@@ -59,51 +60,43 @@ export async function callAgent(
       description: 'Gathers employee details from the HR database',
       schema: z.object({
         query: z.string().describe('The search query'),
-        n: z
-          .number()
-          .optional()
-          .default(10)
-          .describe('Number of results to return'),
+        n: z.number().optional().describe('Number of results to return'),
       }),
     }
   )
 
   const tools = [employeeLookupTool]
-  const toolNode = new ToolNode<typeof GraphState.State>(tools as any)
+  const toolNode = new ToolNode<{ messages: BaseMessage[] }>(tools as any)
 
-  const llm = new ChatGroq({
-    model: 'llama-3.3-70b-versatile',
+  const llm = new ChatGoogleGenerativeAI({
+    model: 'gemini-1.5-pro',
     temperature: 0,
   }).bindTools(tools)
 
-  // Define the function that calls the model
+  // Updated to use 'messages' instead of 'message'
   async function callModel(state: typeof GraphState.State) {
     const prompt = ChatPromptTemplate.fromMessages([
       [
         'system',
-        `You are a helpful AI assistant, collaborating with other assistants. Use the provided tools to progress towards answering the question. If you are unable to fully answer, that's OK, another assistant with different tools will help where you left off. Execute what you can to make progress. If you or any of the other assistants have the final answer or deliverable, prefix your response with FINAL ANSWER so the team knows to stop. You have access to the following tools: {tool_names}.\n{system_message}\nCurrent time: {time}.`,
+        `You are a helpful HR AI assistant. Use the provided tools to answer questions about employees. Format responses clearly and concisely.`,
       ],
       new MessagesPlaceholder('messages'),
     ])
 
     const formattedPrompt = await prompt.formatMessages({
-      system_message: 'You are helpful HR Chatbot Agent.',
-      time: new Date().toISOString(),
-      tool_names: tools.map((tool) => tool.name).join(', '),
-      messages: state.message,
+      messages: state.messages,
     })
 
     const result = await llm.invoke(formattedPrompt)
-
-    return { message: [result] as BaseMessage[] }
+    return { messages: [result] }
   }
 
-  function shouldContiue(state: typeof GraphState.State) {
-    const message = state.message
-    const lastmessage = message[message.length - 1] as AIMessage
+  // Updated to use 'messages' instead of 'message'
+  function shouldContinue(state: typeof GraphState.State) {
+    const messages = state.messages
+    const lastMessage = messages[messages.length - 1] as AIMessage
 
-    if (lastmessage.tool_calls?.length) return 'tools'
-
+    if (lastMessage.tool_calls?.length) return 'tools'
     return '__end__'
   }
 
@@ -111,13 +104,14 @@ export async function callAgent(
     .addNode('agent', callModel)
     .addNode('tools', toolNode)
     .addEdge('__start__', 'agent')
-    .addConditionalEdges('agent', shouldContiue)
+    .addConditionalEdges('agent', shouldContinue)
     .addEdge('tools', 'agent')
 
   const checkpointer = new MongoDBSaver({ client, dbName: db_name })
 
   const app = workFlow.compile({ checkpointer })
 
+  // Updated to use 'messages' in the initial state
   const finalState = await app.invoke(
     {
       messages: [new HumanMessage(query)],
@@ -125,8 +119,8 @@ export async function callAgent(
     { recursionLimit: 15, configurable: { thread_id: thread_id } }
   )
 
-  // console.log(JSON.stringify(finalState.messages, null, 2));
-  console.log(finalState.messages[finalState.messages.length - 1].content)
-
-  return finalState.messages[finalState.messages.length - 1].content
+  const finalMessage =
+    finalState.messages[finalState.messages.length - 1].content
+  console.log(finalMessage)
+  return finalMessage
 }
