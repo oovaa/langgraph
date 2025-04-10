@@ -3,23 +3,18 @@ import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { RunnableSequence } from '@langchain/core/runnables'
 import { ChatGroq } from '@langchain/groq'
 
-// Initialize the ChatGroq model
+// 2. Create the parser from the Zod schema
+const parser = new JsonOutputParser()
+
+// 3. Initialize the ChatGroq model
 const llm = new ChatGroq({
   model: 'llama-3.3-70b-versatile',
   temperature: 0,
   maxTokens: undefined,
   maxRetries: 2,
-  // responseFormat: { type: "json_object" }, // Enable JSON mode
 })
 
-interface schema {
-  Chatbots: string
-  LLMs: string
-}
-
-const parser = new JsonOutputParser<schema>()
-
-// Define the prompt
+// 4. Create the prompt using the format instructions
 const prompt = ChatPromptTemplate.fromMessages([
   {
     role: 'system',
@@ -27,12 +22,19 @@ const prompt = ChatPromptTemplate.fromMessages([
   },
   {
     role: 'user',
-    content:
-      'Please provide the details of chatbots versus LLMs in JSON format. Use technical jargon in the output.',
+    content: `Please provide a brief technical comparison between chatbots and LLMs in JSON format. Use technical language.`,
   },
 ])
 
-const chain = RunnableSequence.from([prompt, llm, parser])
-//await llm.invoke(prompt,)
+// 5. Create the chain
+const chain = RunnableSequence.from([
+  prompt,
 
-console.log(await chain.invoke({}))
+  llm,
+  // (prevResult) => console.log(prevResult),
+  parser,
+])
+
+// 6. Invoke the chain and log result
+const result = await chain.invoke({})
+console.log(result)
