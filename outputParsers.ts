@@ -9,103 +9,123 @@ import { RunnableSequence } from '@langchain/core/runnables'
 import { ChatGroq } from '@langchain/groq'
 import { z } from 'zod'
 
-/**
- * LangChain has many types of output parsers. Below is a summary table:
- *
- * - Name: The name of the output parser
- * - Supports Streaming: Whether the output parser supports streaming
- * - Has Format Instructions: Whether the output parser has format instructions
- * - Calls LLM: Whether this output parser itself calls an LLM
- * - Input Type: Expected input type
- * - Output Type: The output type returned by the parser
- * - Description: Commentary on this output parser and when to use it
- */
-
 interface Joke {
   body: string
   explanation: string
   rating: number
 }
 
-const jsonParser = new JsonOutputParser<Joke>()
-const stringParser = new StringOutputParser()
-const listParser = new CommaSeparatedListOutputParser()
-
 const llm = new ChatGroq({
   model: 'llama-3.3-70b-versatile',
   temperature: 0.5,
 })
 
-const prompt = ChatPromptTemplate.fromMessages([
-  ['system', `you are an ai assistant`],
-  ['user', 'suggest 5 names saperated by commas for {input} '],
-])
+async function callStringOutputParser() {
+  const prompt = ChatPromptTemplate.fromMessages([
+    [
+      'system',
+      `You are an AI assistant that extracts a single piece of information.`,
+    ],
+    ['user', 'Extract the capital city of {country}.'],
+  ])
+  const parser = new StringOutputParser()
+  const chain = RunnableSequence.from([prompt, llm, parser])
+  const response = await chain.invoke({ country: 'France' })
+  console.log('String Output Parser Response:', response)
+  return response
+}
 
-// const chain = RunnableSequence.from([
-//   prompt,
-//   // (prevResult) => console.log(prevResult),
-//   llm,
-//   listParser,
-// ])
+async function callJsonOutputParser() {
+  const prompt = ChatPromptTemplate.fromMessages([
+    [
+      'system',
+      `You are an AI assistant that extracts information in JSON format.`,
+    ],
+    [
+      'user',
+      'Extract the body, explanation, and a rating (as a number) for the following joke:\n\n{joke}',
+    ],
+  ])
+  const parser = new JsonOutputParser<Joke>()
+  const chain = RunnableSequence.from([prompt, llm, parser])
+  const response = await chain.invoke({
+    joke: 'Why did the scarecrow win an award? Because he was outstanding in his field!',
+  })
+  console.log('JSON Output Parser Response:', response)
+  return response
+}
 
-// const response = await chain.invoke({
-//   input: 'cats',
-// })
+async function callCommaSeparatedListOutputParser() {
+  const prompt = ChatPromptTemplate.fromMessages([
+    [
+      'system',
+      `You are an AI assistant that generates a comma-separated list.`,
+    ],
+    ['user', 'Suggest 5 {item} separated by commas.'],
+  ])
+  const parser = new CommaSeparatedListOutputParser()
+  const chain = RunnableSequence.from([prompt, llm, parser])
+  const response = await chain.invoke({ item: 'colors' })
+  console.log('Comma Separated List Output Parser Response:', response)
+  return response
+}
 
-// console.log(response)
-
-async function callStructuredOutputParser() {
+async function callStructuredOutputParserFunction() {
   const prompt = ChatPromptTemplate.fromTemplate(`
     Extract information from the following phrase.
-     formating instructions :{format}
-      Phrase: {phrase}
+    Formatting instructions: {format}
+    Phrase: {phrase}
 
-      ## RETURN THE VALID JSON OBJECT AND NOTHING ELSE
-
-    `)
+    ## RETURN THE VALID JSON OBJECT AND NOTHING ELSE
+  `)
 
   const structuredParser = StructuredOutputParser.fromNamesAndDescriptions({
     name: 'the name of the person',
     age: 'the age of the person',
-    gender: 'the gender of the person male/female',
+    gender: 'the gender of the person (male/female)',
   })
   const chain = RunnableSequence.from([prompt, llm, structuredParser])
-  // prompt.pipe(llm).pipe(structuredParser)
 
   const res = await chain.invoke({
-    phrase: 'Omar is a 24 y/o man',
+    phrase: 'Alice is a 30 year old woman.',
     format: structuredParser.getFormatInstructions(),
   })
 
-  console.log(res)
+  console.log('Structured Output Parser Response:', res)
+  return res
 }
 
-async function callZodOutputParser() {
+async function callZodOutputParserFunction() {
   const prompt = ChatPromptTemplate.fromTemplate(`
-    Extract information from the following phrase.
-     formating instructions :{format}
-      Phrase: {phrase}
+    Extract information about a recipe from the following phrase.
+    Formatting instructions: {format}
+    Phrase: {phrase}
 
-      ## RETURN THE VALID JSON OBJECT AND NOTHING ELSE
+    ## RETURN THE VALID JSON OBJECT AND NOTHING ELSE
+  `)
 
-    `)
-
-  const zod = z.object({
-    recipe: z.string().describe('name of the recipe'),
-    components: z.array(z.string()).describe('components of the recipe'),
+  const zodSchema = z.object({
+    recipeName: z.string().describe('the name of the recipe'),
+    ingredients: z.array(z.string()).describe('a list of ingredients'),
+    prepTime: z.string().describe('the preparation time'),
   })
 
-  const structuredParser = StructuredOutputParser.fromZodSchema(zod)
-  const chain = RunnableSequence.from([prompt, llm, structuredParser])
-  // prompt.pipe(llm).pipe(structuredParser)
+  const zodParser = StructuredOutputParser.fromZodSchema(zodSchema)
+  const chain = RunnableSequence.from([prompt, llm, zodParser])
 
   const res = await chain.invoke({
-    phrase: 'The ingredients of a cake recipe',
-    format: structuredParser.getFormatInstructions(),
+    phrase:
+      'A delicious pasta carbonara with eggs, cheese, and pancetta takes about 20 minutes to prepare.',
+    format: zodParser.getFormatInstructions(),
   })
 
-  console.log(res)
+  console.log('Zod Output Parser Response:', res)
+  return res
 }
 
-// callStructuredOutputParser()
-callZodOutputParser()
+// Example calls to each function:
+callStringOutputParser()
+callJsonOutputParser()
+callCommaSeparatedListOutputParser()
+callStructuredOutputParserFunction()
+callZodOutputParserFunction()
