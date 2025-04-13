@@ -7,6 +7,7 @@ import {
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { RunnableSequence } from '@langchain/core/runnables'
 import { ChatGroq } from '@langchain/groq'
+import { z } from 'zod'
 
 /**
  * LangChain has many types of output parsers. Below is a summary table:
@@ -79,4 +80,32 @@ async function callStructuredOutputParser() {
   console.log(res)
 }
 
-callStructuredOutputParser()
+async function callZodOutputParser() {
+  const prompt = ChatPromptTemplate.fromTemplate(`
+    Extract information from the following phrase.
+     formating instructions :{format}
+      Phrase: {phrase}
+
+      ## RETURN THE VALID JSON OBJECT AND NOTHING ELSE
+
+    `)
+
+  const zod = z.object({
+    recipe: z.string().describe('name of the recipe'),
+    components: z.array(z.string()).describe('components of the recipe'),
+  })
+
+  const structuredParser = StructuredOutputParser.fromZodSchema(zod)
+  const chain = RunnableSequence.from([prompt, llm, structuredParser])
+  // prompt.pipe(llm).pipe(structuredParser)
+
+  const res = await chain.invoke({
+    phrase: 'The ingredients of a cake recipe',
+    format: structuredParser.getFormatInstructions(),
+  })
+
+  console.log(res)
+}
+
+// callStructuredOutputParser()
+callZodOutputParser()
