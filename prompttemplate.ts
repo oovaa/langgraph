@@ -1,24 +1,47 @@
 import {
   ChatPromptTemplate,
   MessagesPlaceholder,
+  PromptTemplate,
 } from '@langchain/core/prompts'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { ChatGroq } from '@langchain/groq'
 
-const model = new ChatGroq({
-  model: 'llama-3.3-70b-versatile',
-  temperature: 0,
-  maxTokens: undefined,
-  maxRetries: 2,
-})
+const promptTemplate = ChatPromptTemplate.fromMessages([
+  ['system', 'You are a helpful assistant'],
+  ['placeholder', '{msgs}'], // <-- This is the changed part
+])
 
-const messages = [
-  new SystemMessage('Translate the following from English into Arabic'),
-  new HumanMessage('hi!'),
-]
+const re = await promptTemplate.invoke({ msgs: [new HumanMessage('hello!')] })
+console.log(re)
 
-const re = await model.invoke(messages)
-console.log(re.content)
+// const promptTemplate = ChatPromptTemplate.fromMessages([
+//   ['system', 'You are a helpful assistant'],
+//   ['user', 'tell me about {topic}'],
+// ])
+
+// console.log(await promptTemplate.invoke({ topic: 'cats' }))
+
+// const promptTemplate = PromptTemplate.fromTemplate(
+//   'Tell me a joke about {topic}'
+// )
+
+// const re = await promptTemplate.invoke({ topic: 'cats' })
+// console.log(re)
+
+// // const model = new ChatGroq({
+//   model: 'llama-3.3-70b-versatile',
+//   temperature: 0,
+//   maxTokens: undefined,
+//   maxRetries: 2,
+// })
+
+// const messages = [
+//   new SystemMessage('Translate the following from English into Arabic'),
+//   new HumanMessage('hi!'),
+// ]
+
+// const re = await model.invoke(messages)
+// console.log(re.content)
 
 // const promptTemplate = ChatPromptTemplate.fromMessages([
 //   ['system', 'You are a helpful assistant'],
