@@ -25,7 +25,7 @@ const analysisPrompt = ChatPromptTemplate.fromTemplate(
 const prompt = ChatPromptTemplate.fromTemplate(`
   Tell me a joke about {topic}. Make it in one line.
   {format_instructions}
-`)
+  `)
 
 const jokeParser = StructuredOutputParser.fromZodSchema(zz)
 const formatInstructions = jokeParser.getFormatInstructions()
