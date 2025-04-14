@@ -1,34 +1,68 @@
-import { StringOutputParser } from '@langchain/core/output_parsers'
+import {
+  StringOutputParser,
+  StructuredOutputParser,
+} from '@langchain/core/output_parsers'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { ChatGroq } from '@langchain/groq'
-import { RunnableLambda } from '@langchain/core/runnables'
+import { RunnableLambda, RunnableSequence } from '@langchain/core/runnables'
+import { z } from 'zod'
 
 // Define LLM instance
 const llm = new ChatGroq({
-  model: 'llama-3.3-70b-versatile',
+  model: 'llama3-70b-8192', // Updated model name
   temperature: 0,
+})
+
+const zz = z.object({
+  joke: z.string().describe('the joke'),
 })
 
 const analysisPrompt = ChatPromptTemplate.fromTemplate(
   'is this a funny joke? {joke}'
 )
 
-const prompt = ChatPromptTemplate.fromTemplate('tell me a joke about {topic}')
-const chain = prompt.pipe(llm).pipe(new StringOutputParser())
+// Update prompt to include format instructions
+const prompt = ChatPromptTemplate.fromTemplate(`
+  Tell me a joke about {topic}. Make it in one line.
+  {format_instructions}
+`)
 
-const composedChain = new RunnableLambda({
-  func: async (input: { topic: string }) => {
-    const result = await chain.invoke(input)
-    return { joke: result }
-  },
+const jokeParser = StructuredOutputParser.fromZodSchema(zz)
+const formatInstructions = jokeParser.getFormatInstructions()
+
+const chain = prompt.pipe(llm).pipe(jokeParser)
+const analysisChain = RunnableSequence.from([
+  analysisPrompt,
+  llm,
+  new StringOutputParser(),
+])
+
+const composedChain = RunnableSequence.from([
+  chain,
+  analysisChain,
+  // (prevResult) => console.log(prevResult),
+])
+
+const re = await composedChain.invoke({
+  topic: 'bears',
+  format_instructions: formatInstructions,
 })
-  .pipe(analysisPrompt)
-  .pipe(llm)
-  .pipe(new StringOutputParser())
-
-const re = await composedChain.invoke({ topic: 'bears' })
 
 console.log(re)
+
+//// playing around
+
+// const lambda = new RunnableLambda({
+//   func: (x) => {
+//     console.log(x)
+
+//     return x
+//   },
+// })
+
+// const h = await lambda.batch([1, 2, 3, 5])
+
+// console.log(h)
 
 // const re = await chain.invoke({ topic: 'bears' })
 // console.log(re)
