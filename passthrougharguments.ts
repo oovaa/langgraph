@@ -25,8 +25,8 @@ const chain = RunnableSequence.from([
     num: (originalInput) => originalInput.num, // Or you could use a fixed value like 123 here
   },
   {
-    content: (prevResult) => prevResult.content,
-    num: (prevResult) => prevResult.num,
+    content: (pr) => pr.content, // prevResult
+    num: (pr) => pr.num,
   },
   prompt2,
   // (prevResult) => console.log(prevResult),

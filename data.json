@@ -1,0 +1,15 @@
+{
+    "title": "Sample JSON asdlask",
+    "version": 1,
+    "items": [
+        {
+            "name": "item1",
+            "value": 10
+        },
+        {
+            "name": "item2",
+            "value": "20"
+        }
+    ],
+    "id": 12213
+}
