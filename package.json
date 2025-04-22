@@ -24,13 +24,16 @@
         "@langchain/mistralai": "^0.2.0",
         "@langchain/mongodb": "^0.0.5",
         "@types/bun": "^1.2.9",
+        "cheerio": "^1.0.0",
         "d3-dsv": "2",
         "dotenv": "^16.5.0",
         "express": "^4.21.2",
         "i": "^0.3.7",
+        "ignore": "^7.0.3",
         "langchain": "^0.2.20",
         "mammoth": "^1.9.0",
         "mongodb": "^6.15.0",
+        "youtubei.js": "^13.3.0",
         "zod": "^3.24.2"
     },
     "devDependencies": {
