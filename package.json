@@ -33,6 +33,7 @@
         "langchain": "^0.2.20",
         "mammoth": "^1.9.0",
         "mongodb": "^6.15.0",
+        "peggy": "^4.2.0",
         "youtubei.js": "^13.3.0",
         "zod": "^3.24.2"
     },

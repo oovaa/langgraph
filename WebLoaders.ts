@@ -150,7 +150,7 @@ async function demonstrateLoaders() {
 
   // 3. Load webpage content
   const webpageResult = await loadWebpageContent(
-    'https://news.ycombinator.com/item?id=34817881',
+    'https://marketplace.visualstudio.com/items?itemName=OmarAbdo.hasanah',
     { selector: 'p' }
   )
   console.log(webpageResult)
