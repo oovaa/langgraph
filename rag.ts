@@ -10,70 +10,88 @@ import {
   RunnableSequence,
 } from '@langchain/core/runnables'
 
-// Create the prompt
-console.log('Creating the prompt...')
-const template = `You are a helpful and knowledgeable chatbot assistant. Answer the user's questions concisely and accurately base on the context.
+async function main() {
+  try {
+    // Create the prompt
+    console.log('Creating the prompt...')
+    const template = `You are a helpful and knowledgeable chatbot assistant. Answer the user's questions concisely and accurately based on the context.
 
-context:
-{context} 
+    Context:
+    {context}
 
-questoin: 
-{question}
+    Question: 
+    {question}
 
-Answer: 
-`
+    Answer: 
+    `
 
-const prompt = PromptTemplate.fromTemplate(template)
-console.log('Prompt created.')
+    const prompt = PromptTemplate.fromTemplate(template)
+    console.log('Prompt created.')
 
-// Read a doc
-console.log('Loading the document...')
-const fileName = 'Darajat.docx'
-const loader = new DocxLoader(fileName)
-const docs = await loader.load()
-console.log('Document loaded:', docs)
+    // Read a doc
+    console.log('Loading the document...')
+    const fileName = 'Darajat.docx'
+    const loader = new DocxLoader(fileName)
+    const docs = await loader.load()
+    console.log(`Document loaded with ${docs.length} pages.`)
 
-// Chunk the document
-console.log('Splitting the document into chunks...')
-const textSplitter = new RecursiveCharacterTextSplitter({
-  chunkSize: 300,
-  chunkOverlap: 0,
-})
-const texts = await textSplitter.splitText(
-  docs.map((doc) => doc.pageContent.replace(/\n/g, ' ')).join('\n')
-)
-console.log('Document split into chunks:', texts)
+    // Chunk the document
+    console.log('Splitting the document into chunks...')
+    const textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 300,
+      chunkOverlap: 50, // Added some overlap for better context
+    })
 
-// Embed and create vector database
-console.log('Creating embeddings and vector database...')
-const embdModel = new CohereEmbeddings({ model: 'embed-v4.0' })
-const vdb = new MemoryVectorStore(embdModel)
+    const splitDocs = await textSplitter.splitDocuments(docs)
+    const texts = splitDocs.map((doc) => doc.pageContent.replace(/\n/g, ' '))
+    console.log(`Document split into ${texts.length} chunks.`)
 
-for (const text of texts) {
-  const document = new Document({ pageContent: text })
-  vdb.addDocuments([document])
+    // Embed and create vector database
+    console.log('Creating embeddings and vector database...')
+    const embdModel = new CohereEmbeddings({ model: 'embed-english-v3.0' }) // Updated model
+    const vdb = new MemoryVectorStore(embdModel)
+
+    // Add documents with proper error handling
+    try {
+      await vdb.addDocuments(splitDocs)
+      console.log('Documents added to vector store.')
+    } catch (err) {
+      console.error('Error adding documents to vector store:', err)
+      throw err
+    }
+
+    // Create the retriever
+    console.log('Creating the retriever...')
+    const retriever = vdb.asRetriever({ k: 3 }) // Fixed spelling and increased k
+    console.log('Retriever created.')
+
+    // Create the chain
+    console.log('Creating the chain...')
+    const chain = RunnableSequence.from([
+      {
+        context: retriever.pipe(formatDocumentsAsString), // Format retrieved docs
+        question: new RunnablePassthrough(),
+      },
+      prompt,
+      llm,
+    ])
+    console.log('Chain created.')
+
+    // Helper function to format documents
+    function formatDocumentsAsString(docs: Document[]): string {
+      return docs.map((doc) => doc.pageContent).join('\n\n')
+    }
+
+    // Test the chain
+    const question = 'What is the main topic of the document?'
+    console.log('Invoking the chain with question:', question)
+
+    const response = await chain.invoke(question)
+    console.log('Response:', response)
+  } catch (error) {
+    console.error('Error in main process:', error)
+  }
 }
-console.log('Vector database created.')
 
-// Create the retriever
-console.log('Creating the retriever...')
-const retreiver = vdb.asRetriever({ k: 2 })
-console.log('Retriever created.')
-
-// Create the chain
-console.log('Creating the chain...')
-const chain = RunnableSequence.from([
-  {
-    context: retreiver,
-    question: new RunnablePassthrough(),
-  },
-  prompt,
-  llm,
-])
-console.log('Chain created.')
-
-// Invoke the chain
-const question = 'What is the main topic of the document?'
-console.log('Invoking the chain with question:', question)
-const response = await chain.invoke({ question })
-console.log('Response:', response)
+// Run the main function
+main()
