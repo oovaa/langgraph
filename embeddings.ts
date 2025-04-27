@@ -25,12 +25,20 @@ const documents = [document1, document2, document3]
 
 await vectorStore.addDocuments(documents)
 
-const similaritySearchResults = await vectorStore.similaritySearchWithScore(
-  'construction'
-)
+// const similaritySearchResults = await vectorStore.similaritySearchWithScore(
+//   'construction'
+// )
 
-const re = similaritySearchResults.filter((x) => x[1] > 0.2)
+// const re = similaritySearchResults.filter((x) => x[1] > 0.2)
 
-for (const doc of re) {
-  console.log(`* ${doc[0].pageContent} [${JSON.stringify(doc[1], null)}]`)
-}
+// for (const doc of re) {
+//   console.log(`* ${doc[0].pageContent} [${JSON.stringify(doc[1], null)}]`)
+// }
+
+const retreiver = vectorStore.asRetriever({
+  k: 1,
+})
+
+const re = await retreiver.invoke('construction')
+
+console.log(re)

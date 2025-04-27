@@ -1,3 +1,83 @@
+import { CohereEmbeddings } from '@langchain/cohere'
+import { Document } from '@langchain/core/documents'
+import { MemoryVectorStore } from 'langchain/vectorstores/memory'
+
+// --- Setup (same docs, embeddings as before) ---
+const docs = [
+  new Document({
+    pageContent: 'LangChain helps build LLM applications.',
+    metadata: { source: 'intro', year: 2023 },
+  }),
+  new Document({
+    pageContent: 'Retrievers fetch relevant documents.',
+    metadata: { source: 'retrieval', year: 2024 },
+  }),
+  new Document({
+    pageContent: 'Vector stores index document embeddings.',
+    metadata: { source: 'vectorstore', year: 2022 },
+  }),
+  new Document({
+    pageContent: 'Advanced retrieval uses MMR.',
+    metadata: { source: 'retrieval', year: 2023 },
+  }),
+]
+const embeddings = new CohereEmbeddings({
+  model: 'embed-v4.0',
+})
+const vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings)
+
+// --- Create a configured retriever ---
+
+// Retrieve only the top 2 documents
+const retrieverTopK = vectorStore.asRetriever({
+  k: 2,
+})
+
+// Retrieve top 5, but filter for documents from 2024
+const retrieverFiltered = vectorStore.asRetriever({
+  k: 5, // Retrieve up to 5
+  filter: (doc) => doc.metadata.year === 2024,
+})
+
+// Retrieve using MMR
+const retrieverMMR = vectorStore.asRetriever({
+  searchType: 'mmr',
+  k: 2, // Final number of docs to return
+  searchKwargs: {
+    fetchK: 5, // Fetch 5 docs initially for MMR calculation
+    lambda: 0.5, // Balance between similarity and diversity (0=max diversity, 1=max similarity)
+  },
+})
+
+// --- Use the configured retrievers ---
+const query = 'Tell me about retrieval'
+
+const relevantDocsTopK = await retrieverTopK.invoke(query)
+console.log('\n--- Top K (k=2) ---')
+console.log(relevantDocsTopK)
+
+const relevantDocsFiltered = await retrieverFiltered.invoke(query)
+console.log('\n--- Filtered (year=2024) ---')
+console.log(relevantDocsFiltered)
+
+const relevantDocsMMR = await retrieverMMR.invoke(query)
+console.log('\n--- MMR (k=2, fetchK=5) ---')
+console.log(relevantDocsMMR)
+
+/* Expected Output Snippets:
+--- Top K (k=2) ---
+[ Document { pageContent: 'Retrievers fetch relevant documents.', metadata: { source: 'retrieval', year: 2024 } },
+  Document { pageContent: 'Advanced retrieval uses MMR.', metadata: { source: 'retrieval', year: 2024 } } ]
+
+--- Filtered (year=2024) ---
+[ Document { pageContent: 'Retrievers fetch relevant documents.', metadata: { source: 'retrieval', year: 2024 } },
+  Document { pageContent: 'Advanced retrieval uses MMR.', metadata: { source: 'retrieval', year: 2024 } },
+  Document { pageContent: 'Vector stores index document embeddings.', metadata: { source: 'vectorstore', year: 2024 } } ]
+
+--- MMR (k=2, fetchK=5) ---
+// Output will likely contain 2 diverse documents related to retrieval
+*/
+
 // import { CohereEmbeddings } from '@langchain/cohere'
 // import { FunctionalTranslator } from '@langchain/core/structured_query'
 // import { MemoryVectorStore } from 'langchain/vectorstores/memory'
