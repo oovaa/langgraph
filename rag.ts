@@ -1,92 +1,69 @@
-import { llm } from './llm' // Assuming llm is correctly initialized elsewhere
+import { llm } from './llm' // ASSUMED: llm is correctly configured ChatModel instance
 import { PromptTemplate } from '@langchain/core/prompts'
-import { Document } from '@langchain/core/documents' // Correct import path
-import { CohereEmbeddings } from '@langchain/cohere'
+import { Document } from '@langchain/core/documents'
+import { CohereEmbeddings } from '@langchain/cohere' // Ensure COHERE_API_KEY is set
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
 import { DocxLoader } from '@langchain/community/document_loaders/fs/docx'
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { RunnableSequence } from '@langchain/core/runnables'
-import { formatDocumentsAsString } from "langchain/util/document";
-// Optional: If your LLM output needs parsing (e.g., from Chat Messages to string)
-// import { StringOutputParser } from "@langchain/core/output_parsers";
+import { formatDocumentsAsString } from 'langchain/util/document'
+// Optional: import { StringOutputParser } from "@langchain/core/output_parsers";
 
-// --- 1. Preparation Phase ---
+async function runRAG() {
+  // --- Setup ---
+  console.log('Setting up...')
+  const fileName = 'Darajat.docx' // Make sure this file exists
+  const loader = new DocxLoader(fileName)
+  const docs = await loader.load()
 
-// Read a doc
-console.log('Loading the document...')
-const fileName = 'Darajat.docx' // Ensure file exists
-const loader = new DocxLoader(fileName)
-const docs = await loader.load()
-console.log('Document loaded.')
+  const textSplitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 300,
+    chunkOverlap: 0,
+  })
+  const pageContents = docs.map((doc) => doc.pageContent).join('\n\n')
+  const texts = await textSplitter.splitText(pageContents)
 
-// Chunk the document
-console.log('Splitting the document into chunks...')
-const textSplitter = new RecursiveCharacterTextSplitter({
-  chunkSize: 300,
-  chunkOverlap: 0, // Consider a small overlap (e.g., 50)
-})
-const pageContents = docs.map((doc) => doc.pageContent).join('\n\n');
-const texts = await textSplitter.splitText(pageContents);
-console.log(`Document split into ${texts.length} chunks.`)
+  const embeddings = new CohereEmbeddings({ model: 'embed-english-v3.0' }) // Verify model
+  const documentsToEmbed = texts.map(
+    (text) => new Document({ pageContent: text })
+  )
+  const vectorStore = await MemoryVectorStore.fromDocuments(
+    documentsToEmbed,
+    embeddings
+  )
+  const retriever = vectorStore.asRetriever({ k: 2 })
 
-// Embed and create vector database
-console.log('Creating embeddings and vector database...')
-// Ensure COHERE_API_KEY is set in your environment
-const embdModel = new CohereEmbeddings({ model: 'embed-english-v3.0' }); // Verify model name
-const documentsToEmbed = texts.map((text) => new Document({ pageContent: text }));
-const vdb = await MemoryVectorStore.fromDocuments(documentsToEmbed, embdModel);
-console.log('Vector database created.')
+  // --- Retrieval ---
+  console.log('Retrieving...')
+  const question = 'What is the main topic of the document?'
+  const retrievedDocs = await retriever.invoke(question)
+  const context = formatDocumentsAsString(retrievedDocs)
 
-// Create the retriever
-console.log('Creating the retriever...')
-const retriever = vdb.asRetriever({ k: 2 }); // Retrieve top 2 chunks
-console.log('Retriever created.')
-
-// --- 2. Retrieval Phase ---
-
-const question = 'What is the main topic of the document?'
-console.log('\nRetrieving relevant documents for question:', question)
-
-// Directly invoke the retriever with the question string
-const retrievedDocs = await retriever.invoke(question);
-console.log('Retrieved documents:', retrievedDocs.length);
-// console.log(retrievedDocs); // Optional: See the retrieved docs
-
-// Format the retrieved documents into a single string context
-const context = formatDocumentsAsString(retrievedDocs);
-console.log('Formatted context ready.')
-// console.log('Context:\n', context); // Optional: See the formatted context
-
-// --- 3. Generation Phase ---
-
-// Create the prompt template (same as before)
-console.log('\nCreating the generation prompt template...')
-const template = `You are a helpful and knowledgeable chatbot assistant. Answer the user's questions concisely and accurately base on the context.
-context:
+  // --- Generation ---
+  console.log('Generating...')
+  const template = `Answer the question based only on the following context:
+Context:
 {context}
-question:
+
+Question:
 {question}
-Answer:
-`
-const prompt = PromptTemplate.fromTemplate(template)
-console.log('Prompt template created.')
 
-// Create a *simple* generation chain: Prompt -> LLM -> OutputParser (optional)
-console.log('Creating the generation chain...')
-const generationChain = RunnableSequence.from([
-  prompt,
-  llm,
-  // Optional: Add an output parser if your llm object doesn't output strings directly
-  // new StringOutputParser(),
-]);
-console.log('Generation chain created.');
+Answer:`
+  const prompt = PromptTemplate.fromTemplate(template)
 
-// Invoke the generation chain with the prepared context and question
-console.log('Invoking the generation chain...')
-const response = await generationChain.invoke({
-  context: context,       // Pass the formatted context string
-  question: question      // Pass the original question string
-});
+  const generationChain = RunnableSequence.from([
+    prompt,
+    llm,
+    // Optional: new StringOutputParser(), // Add if llm output needs string conversion
+  ])
 
-console.log('\n--- Final Response ---')
-console.log(response.content)
+  const response = await generationChain.invoke({
+    context: context,
+    question: question,
+  })
+
+  console.log('\nResponse:')
+  console.log(response.content) // Adjust if using StringOutputParser
+}
+
+runRAG().catch(console.error)
