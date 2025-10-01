@@ -26,13 +26,20 @@ class AIResponse(BaseModel):
     response: str = Field(description="Suggested response to the user")
 
 
+# JSON output parser
+json_parser = JsonOutputParser(pydantic_object=AIResponse)
+
+
+chain = llm | json_parser
+
+
 @app.route("/generate", methods=["POST"])
 def generate():
     input = request.json["input"]
     # This is where we'll add our AI logic later
-    res = llm.invoke(input)
+    res = chain.invoke(input)
     print(res)
-    return jsonify({"message": res.content})
+    return jsonify(res)
 
 
 if __name__ == "__main__":
