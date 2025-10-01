@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from langchain_groq import ChatGroq
-
+from pydantic import BaseModel, Field
+from langchain_core.output_parsers import JsonOutputParser
 
 app = Flask(__name__)
 
@@ -14,6 +15,15 @@ llm = ChatGroq(
     max_retries=2,
     # other params...
 )
+
+
+# Define JSON output structure
+class AIResponse(BaseModel):
+    summary: str = Field(description="Summary of the user's message")
+    sentiment: int = Field(
+        description="Sentiment score from 0 (negative) to 100 (positive)"
+    )
+    response: str = Field(description="Suggested response to the user")
 
 
 @app.route("/generate", methods=["POST"])
