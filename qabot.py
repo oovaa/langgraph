@@ -23,7 +23,7 @@ warnings.filterwarnings('ignore')
 # 1. LLM Configuration
 # -----------------------------
 def get_llm():
-    model_id = 'mistralai/mixtral-8x7b-instruct-v01'
+    model_id = 'ibm/granite-3-2-8b-instruct'  # ✅ supported
     parameters = {
         GenParams.MAX_NEW_TOKENS: 512,
         GenParams.TEMPERATURE: 0.7,
@@ -135,4 +135,4 @@ rag_application = gr.Interface(
 # -----------------------------
 # 9. Launch the App
 # -----------------------------
-rag_application.launch(server_name="0.0.0.0", server_port=7860, share=True)
+rag_application.launch(server_name="0.0.0.0", server_port=7861, share=True)
