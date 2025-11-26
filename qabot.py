@@ -1,3 +1,5 @@
+import langchain
+import langchain.runnables
 from ibm_watsonx_ai.foundation_models import ModelInference
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
 from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames
@@ -11,19 +13,20 @@ from langchain.chains import RetrievalQA
 import gradio as gr
 import warnings
 
+
 # Suppress warnings
 def warn(*args, **kwargs):
     pass
 
 warnings.warn = warn
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 # -----------------------------
 # 1. LLM Configuration
 # -----------------------------
 def get_llm():
-    model_id = 'ibm/granite-3-2-8b-instruct'  # ✅ supported
+    model_id = "ibm/granite-3-2-8b-instruct"  # ✅ supported
     parameters = {
         GenParams.MAX_NEW_TOKENS: 512,
         GenParams.TEMPERATURE: 0.7,
@@ -110,11 +113,11 @@ def retriever_qa(file, query):
         llm=llm,
         chain_type="stuff",
         retriever=retriever_obj,
-        return_source_documents=True
+        return_source_documents=True,
     )
 
     response = qa.invoke({"query": query})
-    return response['result']
+    return response["result"]
 
 
 # -----------------------------
@@ -124,12 +127,14 @@ rag_application = gr.Interface(
     fn=retriever_qa,
     allow_flagging="never",
     inputs=[
-        gr.File(label="Upload PDF File", file_count="single", file_types=['.pdf']),
-        gr.Textbox(label="Input Query", lines=2, placeholder="Type your question here...")
+        gr.File(label="Upload PDF File", file_count="single", file_types=[".pdf"]),
+        gr.Textbox(
+            label="Input Query", lines=2, placeholder="Type your question here..."
+        ),
     ],
     outputs=gr.Textbox(label="Response"),
     title="📄 IBM watsonx.ai RAG Chatbot",
-    description="Upload a PDF document and ask any question. The chatbot will answer using the content of the uploaded document."
+    description="Upload a PDF document and ask any question. The chatbot will answer using the content of the uploaded document.",
 )
 
 # -----------------------------

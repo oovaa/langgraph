@@ -7,7 +7,7 @@ import {
 } from '@langchain/core/runnables'
 import { Document } from '@langchain/core/documents'
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
-import llm from './llm.ts'
+import { llm } from './llm.ts'
 
 const model = llm
 const vectorstore = await MemoryVectorStore.fromDocuments(
@@ -22,6 +22,7 @@ const template = `Answer the question based only on the following context:
 Question: {question}`
 
 const prompt = PromptTemplate.fromTemplate(template)
+
 
 const formatDocs = (docs: Document[]) => docs.map((doc) => doc.pageContent)
 
